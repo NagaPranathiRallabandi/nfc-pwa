@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NFC Charity Management – PWA</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#4CAF50">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f9;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .box {
+      background: white;
+      padding: 20px 25px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      text-align: center;
+      width: 300px;
+    }
+    button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 6px;
+      background: #4CAF50;
+      color: white;
+      font-size: 16px;
+      cursor: pointer;
+      margin-top: 10px;
+    }
+    button:disabled {
+      background: gray;
+      cursor: not-allowed;
+    }
+    #status {
+      margin-top: 15px;
+      font-size: 14px;
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <h3>Charity NFC Scanner</h3>
+  <button id="scanBtn">Scan NFC Tag</button>
+  <div id="status">Tap an NFC card to start.</div>
+</div>
+
+<script>
+    if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("service-worker.js")
+        .then(() => console.log("Service Worker Registered"))
+        .catch(err => console.log("SW error:", err));
+    }
+    const scanBtn = document.getElementById("scanBtn");
+    const status = document.getElementById("status");
+
+    scanBtn.addEventListener("click", async () => {
+        if (!("NDEFReader" in window)) {
+        status.innerText = "Web NFC is not supported on this device/browser.";
+        return;
+        }
+
+        try {
+        const ndef = new NDEFReader();
+        await ndef.scan();
+        status.innerText = "Scanning... Bring NFC tag close to phone.";
+
+        ndef.onreading = event => {
+            const tagSerialNumber = event.serialNumber;
+            status.innerText = "NFC Tag Detected: " + tagSerialNumber;
+
+            // Send NFC UID to backend
+            sendToServer(tagSerialNumber);
+        };
+
+        } catch (error) {
+        console.error(error);
+        status.innerText = "Error starting NFC scan: " + error;
+        }
+    });
+
+    async function sendToServer(tagID) {
+        try {
+        const response = await fetch("http://localhost:3000/api/nfc-scan", {
+            method: "POST",
+            headers: {
+            "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+            nfc_id: tagID,
+            time: new Date().toISOString()
+            })
+        });
+
+        const data = await response.json();
+        status.innerText = "Database Updated: " + data.message;
+        } catch (err) {
+        console.error(err);
+        status.innerText = "Failed to update database.";
+        }
+    }
+</script>
+
+</body>
+</html>
